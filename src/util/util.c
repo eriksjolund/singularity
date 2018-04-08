@@ -453,7 +453,7 @@ void fd_cleanup(void) {
     while ((dp = readdir(dir)) != NULL) {
         long int parsed_num;
         if ( str2int(dp->d_name, &parsed_num) != 0 ) {
-            if ( strcmp(".", dp->d_name) && strcmp("..", dp->d_name) ) {
+            if ( strcmp(".", dp->d_name) != 0 && strcmp("..", dp->d_name) != 0 ) {
                 // We should never end up here. Here is what we know:
                 //                
                 // The entry is not an integer.
