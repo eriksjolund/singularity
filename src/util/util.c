@@ -451,9 +451,8 @@ void fd_cleanup(void) {
         ABORT(255);
     }
     while ((dp = readdir(dir)) != NULL) {
-        char* first_invalid_character;
-        int i = (int) strtol(dp->d_name, &first_invalid_character, 10);
-        if ( *first_invalid_character ) {
+        long int parsed_num;
+        if ( str2int(dp->d_name, &parsed_num) != 0 ) {
             if ( strcmp(".", dp->d_name) && strcmp("..", dp->d_name) ) {
                 // We should never end up here. Here is what we know:
                 //                
@@ -466,17 +465,19 @@ void fd_cleanup(void) {
             // Skip the entries "." and ".."
             continue;
         }
-        if ( i == dir_fd ) {
+        // TODO check that parsed_num has a value in the valid range for an int
+        int fd_from_proc_string = (int) parsed_num;
+        if ( fd_from_proc_string == dir_fd ) {
             // We shouldn't close the directory file descriptor
             // from where we are reading just now.
             continue;
         }
         struct stat filestat;
-        if ( fstat(i, &filestat) < 0 ) {
+        if ( fstat(fd_from_proc_string, &filestat) < 0 ) {
             continue;
         }
         if ( S_ISDIR(filestat.st_mode) || S_ISSOCK(filestat.st_mode) ) {
-            int res = close(i);
+            int res = close(fd_from_proc_string);
             if ( res < 0 ) {
                singularity_message(ERROR, "Could not close file descriptor\n");
                ABORT(255);
