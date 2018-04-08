@@ -432,35 +432,19 @@ struct tempfile *make_logfile(char *label) {
     return(tf);
 }
 
-// close all file descriptors pointing to a directory
+// close all file descriptors pointing to a directory or a socket
 void fd_cleanup(void) {
-    char *fd_path = (char *)malloc(PATH_MAX);
     int i;
 
     singularity_message(DEBUG, "Cleanup file descriptor table\n");
 
-    if ( fd_path == NULL ) {
-        singularity_message(ERROR, "Failed to allocate memory\n");
-        ABORT(255);
-    }
-
     for ( i = 0; i <= sysconf(_SC_OPEN_MAX); i++ ) {
-        int length;
-        length = snprintf(fd_path, PATH_MAX-1, "/proc/self/fd/%d", i);
-        if ( length < 0 ) {
-            singularity_message(ERROR, "Failed to determine file descriptor path\n");
-            ABORT(255);
-        }
-        if ( length > PATH_MAX-1 ) {
-            length = PATH_MAX-1;
-        }
-        fd_path[length] = '\0';
-
-        if ( is_dir(fd_path) < 0 || is_sock(fd_path) < 0 ) {
+        struct stat filestat;
+        if (fstat(i, &filestat) < 0) {
             continue;
         }
-        close(i);
+        if (S_ISDIR(filestat.st_mode) || S_ISSOCK(filestat.st_mode)) {
+            close(i);
+        }
     }
-
-    free(fd_path);
 }
