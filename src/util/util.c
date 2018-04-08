@@ -40,6 +40,7 @@
 #include <linux/limits.h>
 #include <ctype.h>
 #include <pwd.h>
+#include <dirent.h>
 
 #include "config.h"
 #include "util/util.h"
@@ -432,35 +433,60 @@ struct tempfile *make_logfile(char *label) {
     return(tf);
 }
 
-// close all file descriptors pointing to a directory
+// close all file descriptors pointing to a directory or a socket
 void fd_cleanup(void) {
-    char *fd_path = (char *)malloc(PATH_MAX);
-    int i;
+    DIR *dir;
 
-    singularity_message(DEBUG, "Cleanup file descriptor table\n");
+    int dir_fd = open("/proc/self/fd", O_RDONLY);
 
-    if ( fd_path == NULL ) {
-        singularity_message(ERROR, "Failed to allocate memory\n");
+    if ( dir_fd < 0 ) {
+        singularity_message(ERROR, "Could not open /proc/self/fd\n");
         ABORT(255);
     }
+    struct dirent *dp;
 
-    for ( i = 0; i <= sysconf(_SC_OPEN_MAX); i++ ) {
-        int length;
-        length = snprintf(fd_path, PATH_MAX-1, "/proc/self/fd/%d", i);
-        if ( length < 0 ) {
-            singularity_message(ERROR, "Failed to determine file descriptor path\n");
-            ABORT(255);
-        }
-        if ( length > PATH_MAX-1 ) {
-            length = PATH_MAX-1;
-        }
-        fd_path[length] = '\0';
-
-        if ( is_dir(fd_path) < 0 || is_sock(fd_path) < 0 ) {
+    dir = fdopendir(dir_fd);
+    if ( dir == NULL ) {
+        singularity_message(ERROR, "Could not fdopendir the file descriptor for /proc/self/fd\n");
+        ABORT(255);
+    }
+    while ((dp = readdir(dir)) != NULL) {
+        char* first_invalid_character;
+        int i = (int) strtol(dp->d_name, &first_invalid_character, 10);
+        if ( *first_invalid_character ) {
+            if ( strcmp(".", dp->d_name) && strcmp("..", dp->d_name) ) {
+                // We should never end up here. Here is what we know:
+                //                
+                // The entry is not an integer.
+                // The entry is not ".".
+                // The entry is not "..".
+                singularity_message(ERROR, "Unexpected format of entry in /proc/self/fd\n");
+                ABORT(255);
+            }
+            // Skip the entries "." and ".."
             continue;
         }
-        close(i);
+        if ( i == dir_fd ) {
+            // We shouldn't close the directory file descriptor
+            // from where we are reading just now.
+            continue;
+        }
+        struct stat filestat;
+        if ( fstat(i, &filestat) < 0 ) {
+            continue;
+        }
+        if ( S_ISDIR(filestat.st_mode) || S_ISSOCK(filestat.st_mode) ) {
+            int res = close(i);
+            if ( res < 0 ) {
+               singularity_message(ERROR, "Could not close file descriptor\n");
+               ABORT(255);
+            }
+        }
     }
+    int closedir_res = closedir(dir);
 
-    free(fd_path);
+    if ( closedir_res < 0 ) {
+        singularity_message(ERROR, "Could not closedir the directory /proc/self/fd\n");
+        ABORT(255);
+    }
 }
