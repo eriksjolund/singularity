@@ -98,6 +98,12 @@ int singularity_suid_init(char **argv) {
 
         if ( is_exec(self) == 0 ) {
             singularity_message(VERBOSE, "Invoking non-SUID program flow: %s\n", self);
+
+            if ( argv[0] == NULL ) {
+                singularity_message(ERROR, "argv was empty\n");
+                ABORT(255);
+            }
+
             argv[0] = strdup(self);
 
             singularity_priv_drop_perm();
