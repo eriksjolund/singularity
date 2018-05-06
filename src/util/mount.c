@@ -107,7 +107,7 @@ int singularity_mount(const char *source, const char *target,
 
     realdest = realpath(realtarget, NULL); // Flawfinder: ignore
     if ( realdest == NULL ) {
-        singularity_message(ERROR, "Failed to get real path of %s %s\n", target, dest);
+        singularity_message(ERROR, "Failed to get real path of %s\n", target);
         ABORT(255);
     }
 
