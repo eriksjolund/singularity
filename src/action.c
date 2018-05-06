@@ -58,6 +58,11 @@ int close_fd(int fd, struct stat *st) {
 
 int main(int argc, char **argv) {
     struct image_object image;
+
+    if ( argc == 0 ) {
+        exit(255);
+    }
+
     char *pwd = get_current_dir_name();
     char *target_pwd = NULL;
     char *command = NULL;

@@ -69,6 +69,10 @@ int main(int argc, char **argv) {
     pid_t child;
     siginfo_t siginfo;
 
+    if ( argc == 0 ) {
+        exit(255);
+    }
+
     singularity_config_init(joinpath(SYSCONFDIR, "/singularity/singularity.conf"));
 
     singularity_priv_init();
